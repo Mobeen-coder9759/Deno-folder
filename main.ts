@@ -1,4 +1,4 @@
-// Single entrypoint for Deno Deploy (or `deno run -A --env-file=.env main.ts` locally).
+// Single entrypoint for Deno Deploy or Heroku (or `deno run -A --env-file=.env main.ts` locally).
 import { handler, json, HttpError } from "./_shared/http.ts";
 import auth from "./functions/auth.ts";
 import appointments from "./functions/appointments.ts";
@@ -18,7 +18,11 @@ const fallback = handler(async (req) => {
   throw new HttpError(404, "Not found");
 });
 
-Deno.serve((req) => {
+// Get the port from Heroku's environment variables, or fallback to 8000 for local testing
+const port = Number(Deno.env.get("PORT")) || 8000;
+
+// Start the server on the exact port Heroku requires
+Deno.serve({ port }, (req) => {
   const first = new URL(req.url).pathname.split("/").filter(Boolean)[0] ?? "";
   return (routes.get(first) ?? fallback)(req);
 });
