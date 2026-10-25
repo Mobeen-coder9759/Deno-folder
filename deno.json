@@ -1,0 +1,6 @@
+{
+  "tasks": {
+    "start": "deno run -A --env-file=.env main.ts",
+    "check": "deno check main.ts"
+  }
+}
