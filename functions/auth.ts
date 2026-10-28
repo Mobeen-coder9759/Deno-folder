@@ -3,12 +3,13 @@ import { handler, json, readJson, subpath, clientIp, audit, HttpError } from "..
 import { pool, query } from "../_shared/db.ts";
 import { signToken, authorize } from "../_shared/auth.ts";
 import { rateLimit } from "../_shared/ratelimit.ts";
-import { registerBody, loginBody, createUserBody, userStatusBody, idParam } from "../_shared/validate.ts";
+import { registerBody, loginBody, createUserBody, userUpdateBody, idParam } from "../_shared/validate.ts";
 
 const COST = 10;
 const DUMMY_HASH = bcrypt.hashSync("not-a-real-password", COST); // equalizes timing for unknown usernames
 const LOGIN_WINDOW = 15 * 60;
 const PUBLIC_USER = "id, clinic_id, role, username, name"; // constant: never select password_hash for responses
+const LIST_USER = `${PUBLIC_USER}, is_active, created_at`;
 
 async function safeEqual(a: string, b: string) {
   const enc = new TextEncoder();
@@ -78,6 +79,16 @@ export default handler(async (req) => {
     return json({ token: await signToken(user), user });
   }
 
+  // GET /auth/users (admin lists THEIR clinic's users; clinic from the verified session)
+  if (a === "users" && !b && req.method === "GET") {
+    const s = await authorize(req, { roles: ["admin"], bucket: "users-list", limit: 60 });
+    const { rows } = await query(
+      `SELECT ${LIST_USER} FROM app_users WHERE clinic_id = $1 ORDER BY lower(name), id`,
+      [s.clinic_id],
+    );
+    return json({ data: rows });
+  }
+
   // POST /auth/users (admin adds staff to THEIR clinic)
   if (a === "users" && !b && req.method === "POST") {
     const s = await authorize(req, { roles: ["admin"], bucket: "users", limit: 20 });
@@ -94,18 +105,23 @@ export default handler(async (req) => {
     return json({ user: rows[0] }, 201);
   }
 
-  // PATCH /auth/users/:id  { is_active } (deactivation takes effect immediately)
+  // PATCH /auth/users/:id  { is_active?, role? } (takes effect immediately: authorize() re-reads the DB on every request)
   if (a === "users" && b && req.method === "PATCH") {
     const s = await authorize(req, { roles: ["admin"], bucket: "users", limit: 20 });
     const id = idParam.parse(b);
-    if (id === s.id) throw new HttpError(400, "You can't change your own status");
-    const body = userStatusBody.parse(await readJson(req));
+    if (id === s.id) throw new HttpError(400, "You can't change your own role or status");
+    const body = userUpdateBody.parse(await readJson(req));
+    const sets: string[] = [];
+    const vals: unknown[] = [];
+    if (body.is_active !== undefined) { vals.push(body.is_active); sets.push(`is_active = $${vals.length}`); }
+    if (body.role !== undefined) { vals.push(body.role); sets.push(`role = $${vals.length}`); }
+    vals.push(id, s.clinic_id);
     const { rows } = await query(
-      `UPDATE app_users SET is_active = $1 WHERE id = $2 AND clinic_id = $3 RETURNING ${PUBLIC_USER}, is_active`,
-      [body.is_active, id, s.clinic_id],
+      `UPDATE app_users SET ${sets.join(", ")} WHERE id = $${vals.length - 1} AND clinic_id = $${vals.length} RETURNING ${LIST_USER}`,
+      vals,
     );
     if (!rows[0]) throw new HttpError(404, "Not found");
-    audit("user_status", s, { target: id, is_active: body.is_active });
+    audit("user_updated", s, { target: id, ...body });
     return json({ user: rows[0] });
   }
 

@@ -13,6 +13,12 @@ CREATE INDEX IF NOT EXISTS appointments_clinic_name_idx    ON appointments (clin
 -- Usernames are case-insensitive in the API (fails if you already have case-collisions: fix those first)
 CREATE UNIQUE INDEX IF NOT EXISTS app_users_username_ci_key ON app_users (lower(username));
 
+-- Per-clinic savings settings used by the dashboard KPIs (editable by admins on the Settings page)
+ALTER TABLE clinics ADD COLUMN IF NOT EXISTS appointment_value   numeric(10,2) NOT NULL DEFAULT 180;
+ALTER TABLE clinics ADD COLUMN IF NOT EXISTS hourly_cost         numeric(10,2) NOT NULL DEFAULT 22;
+ALTER TABLE clinics ADD COLUMN IF NOT EXISTS minutes_per_booking integer       NOT NULL DEFAULT 6;
+ALTER TABLE clinics ADD COLUMN IF NOT EXISTS timezone            varchar(64)   NOT NULL DEFAULT 'Asia/Karachi';
+
 -- Find orphans (rows with no clinic are invisible to every query)
 SELECT count(*) FROM appointments WHERE clinic_id IS NULL;
 SELECT count(*) FROM app_users    WHERE clinic_id IS NULL;

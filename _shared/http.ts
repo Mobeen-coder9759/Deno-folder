@@ -93,10 +93,12 @@ export function subpath(req: Request, fn: string): string[] {
 
 export const queryParams = (req: Request) => Object.fromEntries(new URL(req.url).searchParams);
 
+// Heroku's router APPENDS the real client address to the END of X-Forwarded-For; every entry before it is whatever
+// the client sent. So we use the last entry (never the first) and ignore cf-connecting-ip, which a client can set
+// freely when we're not behind Cloudflare. Used only for rate limiting, never for authorization.
 export function clientIp(req: Request): string {
-  const ip = req.headers.get("cf-connecting-ip")
-    ?? req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
-  return ip.slice(0, 64);
+  const parts = (req.headers.get("x-forwarded-for") ?? "").split(",").map((p) => p.trim()).filter(Boolean);
+  return (parts[parts.length - 1] ?? "unknown").slice(0, 64);
 }
 
 export const audit = (

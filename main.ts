@@ -4,12 +4,14 @@ import auth from "./functions/auth.ts";
 import appointments from "./functions/appointments.ts";
 import patients from "./functions/patients.ts";
 import analytics from "./functions/analytics.ts";
+import settings from "./functions/settings.ts";
 
 const routes = new Map<string, (req: Request) => Promise<Response>>([
   ["auth", auth],
   ["appointments", appointments],
   ["patients", patients],
   ["analytics", analytics],
+  ["settings", settings],
 ]);
 
 // /health + unknown paths (still gets CORS/security headers + clean JSON errors)

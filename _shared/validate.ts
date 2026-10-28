@@ -96,4 +96,15 @@ export const loginBody = z.object({
 export const createUserBody = z.object({
   username, password: newPassword, name: text(100), role: z.enum(["admin", "staff", "hr"]),
 }).strict();
-export const userStatusBody = z.object({ is_active: z.boolean() }).strict();
+export const userUpdateBody = z.object({
+  is_active: z.boolean().optional(),
+  role: z.enum(["admin", "staff", "hr"]).optional(),
+}).strict().refine((o) => o.is_active !== undefined || o.role !== undefined, "Nothing to update");
+
+// ---------- Clinic settings ----------
+export const settingsUpdateBody = z.object({
+  appointment_value: z.number().min(0).max(1_000_000),
+  hourly_cost: z.number().min(0).max(100_000),
+  minutes_per_booking: z.number().int().min(0).max(1_440),
+  timezone: z.string().trim().min(1).max(64).regex(/^[A-Za-z0-9_+\-\/]+$/, "Invalid timezone"),
+}).partial().strict().refine((o) => Object.keys(o).length > 0, "Nothing to update");

@@ -1,5 +1,9 @@
 import pg from "npm:pg@8.11.3";
 
+// DATE columns (e.g. dob) must stay plain "YYYY-MM-DD" strings. By default node-pg turns them into JS Dates at
+// local midnight, which JSON-serializes as a timestamp and can show the wrong day depending on the server's timezone.
+pg.types.setTypeParser(1082, (v: string) => v);
+
 export const pool = new pg.Pool({
   connectionString: Deno.env.get("DATABASE_URL"),
   // Heroku Postgres requires SSL (self-signed chain). Set DB_SSL=off ONLY for a local dev database.
