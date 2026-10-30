@@ -1,0 +1,8 @@
+{
+  "tasks": {
+    "start": "deno run -A --env-file=.env main.ts",
+    "migrate": "deno run -A --env-file=.env migrate.ts",
+    "check": "deno check main.ts migrate.ts",
+    "test": "python3 tests/test_api.py"
+  }
+}

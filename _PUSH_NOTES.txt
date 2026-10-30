@@ -1,0 +1,2 @@
+This is your Deno-folder with the merged improvements: copy everything over the repo (or replace it).
+New files: functions/settings.ts, migrate.ts, manual-steps.sql. See README.md.
