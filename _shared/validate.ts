@@ -102,6 +102,15 @@ export const updateUserBody = z.object({
   is_active: z.boolean(), role: z.enum(["admin", "staff", "hr"]), name: text(100),
 }).partial().strict().refine((o) => Object.keys(o).length > 0, "Nothing to update");
 
+// ---------- Password reset ----------
+export const forgotPasswordBody = z.object({
+  email: z.string().trim().toLowerCase().max(255).email(),
+}).strict();
+export const resetPasswordBody = z.object({
+  token: z.string().min(32).max(128),
+  password: newPassword,
+}).strict();
+
 // ---------- Settings ----------
 const money = z.number().finite().min(0).max(1_000_000);
 export const settingsBody = z.object({

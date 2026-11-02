@@ -34,3 +34,17 @@ EXCEPTION WHEN unique_violation THEN
   RAISE NOTICE 'app_users_username_ci_key skipped: usernames that differ only by case exist';
 END
 $$;
+
+-- Password-reset tokens (hashed, 60-min expiry, one active token per user)
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id          bigserial   PRIMARY KEY,
+  user_id     integer     NOT NULL REFERENCES app_users (id) ON DELETE CASCADE,
+  token_hash  text        NOT NULL,           -- SHA-256 hex of the raw token
+  expires_at  timestamptz NOT NULL,
+  used        boolean     NOT NULL DEFAULT false,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS prt_user_idx    ON password_reset_tokens (user_id);
+CREATE INDEX IF NOT EXISTS prt_expires_idx ON password_reset_tokens (expires_at);
+-- email column on app_users (nullable so existing rows are unaffected)
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS email text;
