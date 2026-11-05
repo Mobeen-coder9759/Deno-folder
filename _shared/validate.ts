@@ -80,12 +80,19 @@ export const patientUpdate = z.object({
 export const patientKeyQuery = z.object({ name: text(150), phone: phone.optional() }).strict();
 
 // ---------- Analytics ----------
-export const analyticsQuery = z.object({ days: z.coerce.number().int().min(1).max(365).default(30) }).strict();
+export const analyticsQuery = z.object({ 
+  // Caps the lookback to 1 year max, defaults to 30 days
+  days: z.coerce.number().int().min(1).max(365).default(30) 
+}).strict();
 
 // ---------- Auth ----------
 const username = z.string().trim().toLowerCase().regex(/^[a-z0-9._-]{3,50}$/, "3-50 chars: letters, digits, . _ -");
 const newPassword = z.string().min(10, "Min 10 characters").max(128)
   .refine((s) => new TextEncoder().encode(s).length <= 72, "Max 72 bytes (bcrypt limit)");
+
+export const googleBody = z.object({
+  credential: z.string().min(20).max(4096),
+}).strict();
 
 export const registerBody = z.object({
   username, password: newPassword, name: text(100), clinic_name: text(150),
@@ -116,6 +123,7 @@ const money = z.number().finite().min(0).max(1_000_000);
 export const settingsBody = z.object({
   appointment_value: money,
   hourly_cost: money,
-  minutes_per_booking: z.number().finite().min(0).max(1440),
+  // Changed min(0) to min(1) to prevent divide-by-zero errors in dashboard metrics
+  minutes_per_booking: z.number().finite().min(1).max(1440),
   timezone: z.string().trim().max(64).regex(/^[A-Za-z][A-Za-z0-9_+\-/]*$/, "Invalid time zone"),
 }).partial().strict().refine((o) => Object.keys(o).length > 0, "Nothing to update");
