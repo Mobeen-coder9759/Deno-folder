@@ -18,16 +18,26 @@ const pick = (b: Record<string, unknown>) => {
 };
 
 export default handler(async (req) => {
-  const s = await authorize(req, { roles: req.method === "GET" ? READ_ROLES : ROLES });
   const [idRaw] = subpath(req, "appointments");
+
+  // Determine roles based on method. Admin-only for hard deletes (Design point applied)
+  let allowedRoles = ROLES;
+  if (req.method === "GET") allowedRoles = READ_ROLES;
+  if (req.method === "DELETE") allowedRoles = ["admin"];
+
+  // Rate-limited authorize bucket added
+  const s = await authorize(req, { roles: allowedRoles, bucket: "appointments", limit: 120 });
 
   // GET /appointments?date=&reason=&search=&limit=&offset=
   if (req.method === "GET" && !idRaw) {
     const q = appointmentsQuery.parse(queryParams(req));
     const w = new Where(s.clinic_id);
+    
+    // Note: booking_time is timestamptz in DB, so this boundary logic functions safely.
     if (q.date) w.add("(booking_time AT TIME ZONE ?::text)::date = ?::date", await clinicTimeZone(s.clinic_id), q.date);
     if (q.reason) w.add("reason ILIKE ? ESCAPE '\\'", `%${escLike(q.reason)}%`);
     if (q.search) w.add("name ILIKE ? ESCAPE '\\'", `%${escLike(q.search)}%`);
+    
     const params = [...w.params, q.limit, q.offset];
     const { rows } = await query(
       `SELECT ${s.role === "hr" ? SELECT_HR : SELECT} FROM appointments WHERE ${w.sql}
@@ -55,6 +65,10 @@ export default handler(async (req) => {
   if (req.method === "PATCH" && idRaw) {
     const id = idParam.parse(idRaw);
     const { cols, vals } = pick(appointmentUpdate.parse(await readJson(req)));
+    
+    // Bug fix: Empty payload safeguard
+    if (!cols.length) throw new HttpError(400, "Nothing to update");
+    
     const sets = cols.map((c, i) => `${c} = $${i + 1}`);
     const params = [...vals, id, s.clinic_id];
     const { rows } = await query(
