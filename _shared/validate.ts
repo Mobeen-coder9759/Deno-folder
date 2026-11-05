@@ -104,9 +104,11 @@ export const loginBody = z.object({
 }).strict();
 export const createUserBody = z.object({
   username, password: newPassword, name: text(100), role: z.enum(["admin", "staff", "hr"]),
+  email: email.optional(), // Added so Zod strict() doesn't throw on new email field
 }).strict();
 export const updateUserBody = z.object({
   is_active: z.boolean(), role: z.enum(["admin", "staff", "hr"]), name: text(100),
+  email: email.optional(), // Added so Zod strict() doesn't throw on new email field
 }).partial().strict().refine((o) => Object.keys(o).length > 0, "Nothing to update");
 
 // ---------- Password reset ----------
